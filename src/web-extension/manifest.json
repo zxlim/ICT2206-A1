@@ -1,0 +1,29 @@
+{
+
+  "manifest_version": 2,
+  "name": "WhoAreYou",
+  "version": "1.0",
+  "description": "Browser extension for validating response signatures from WAU protocol ",
+
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "dns",
+    "storage",
+    "unlimitedStorage",
+    "notifications",
+    "<all_urls>"
+  ],
+
+  // "content_scripts": [
+  //   {
+  //     "matches": ["*://*/*"],
+  //     "js": ["doh.js"]
+  //   }
+  // ],
+
+    "background": {
+      "scripts": ["doh.min.js","psl.min.js","core.js"]
+    }
+
+}
