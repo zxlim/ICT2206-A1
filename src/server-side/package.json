@@ -1,0 +1,27 @@
+{
+  "name": "harc-server",
+  "version": "1.0.0",
+  "description": "HTTP Authenticated Response Content (HARC): Singing Server.",
+  "main": "src/index.js",
+  "private": true,
+  "scripts": {
+    "eslint": "eslint",
+    "lint": "eslint --color --ext .js ./src/",
+    "format": "prettier --write './src/*.js'",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Team EMB",
+  "license": "None",
+  "devDependencies": {
+    "eslint": "^8.11.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.6.0"
+  },
+  "dependencies": {
+    "fancy-log": "^2.0.0",
+    "http-proxy": "^1.18.1",
+    "yargs": "^17.3.1"
+  }
+}
