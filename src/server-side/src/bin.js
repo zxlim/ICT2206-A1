@@ -152,7 +152,7 @@ const serve = (harcSigningKey, args) => {
     const proxyServer = httpProxy.createProxyServer({
         selfHandleResponse: true,
         target: args.upstream,
-        xfwd: args.xfwd,
+        xfwd: !args.noXFwdFor,
     });
 
     proxyServer.on("proxyReq", (proxyReq) => {
@@ -163,8 +163,9 @@ const serve = (harcSigningKey, args) => {
     proxyServer.on("proxyRes", (proxyRes, request, response) => {
         const responseContent = [];
 
+        // Log the request to console. Similar to a web server's "access log".
         log.info(
-            `"${request.method} ${request.url} HTTP/${request.httpVersion}" ${proxyRes.statusCode} "${request.headers["user-agent"]}"`,
+            `${request.socket.remoteAddress} - "${request.method} ${request.url} HTTP/${request.httpVersion}" ${proxyRes.statusCode} "${request.headers["user-agent"]}"`,
         );
 
         proxyRes.on("data", (chunk) => {
@@ -207,8 +208,8 @@ const serve = (harcSigningKey, args) => {
         });
     });
 
-    log.info(`HARC signing server listening on: ${args.port}/tcp`);
-    proxyServer.listen(args.port);
+    log.info(`HARC signing server listening on: ${args.bind}:${args.port}/tcp`);
+    proxyServer.listen(args.port, args.bind);
 };
 
 const main = () => {
@@ -232,15 +233,31 @@ const main = () => {
             description: "Path to HARC signing key.",
             demandOption: true,
         })
-        .option("xfwd", {
+        .option("bind", {
+            alias: "b",
+            type: "string",
+            description: "Local address to bind to.",
+            default: "0.0.0.0",
+        })
+        .option("noXFwdFor", {
             boolean: true,
-            description: "Enable the X-FORWARDED-FOR HTTP header.",
+            description: "Disable the X-FORWARDED-FOR HTTP header.",
         })
         .option("verbose", {
             alias: "v",
             boolean: true,
             description: "Enable verbose logging.",
         })
+        .example([
+            [
+                "$0 -u http://192.168.0.10 -k /etc/ssl/private/harc_signing_key.pem",
+                "Proxy and sign responses for web application at http://192.168.0.10 with the private key specified using '-k'.",
+            ],
+            [
+                "$0 -u http://127.0.0.1:8080 -k private.pem",
+                "Proxy and sign responses for web application at http://127.0.0.1:8080 with the private key 'private.pem' located in the current directory.",
+            ],
+        ])
         .help()
         .alias("h", "help").argv;
 
@@ -270,8 +287,8 @@ const main = () => {
             log.info(`Upstream Server: ${args.upstream}`);
             log.info(`HARC Signing Key: ${args.signingKey}`);
 
-            if (args.xfwd) {
-                log.info("Enabled X-FORWARDED-FOR HTTP header.");
+            if (args.noXFwdFor) {
+                log.info("Disabled X-FORWARDED-FOR HTTP header.");
             }
         }
 
