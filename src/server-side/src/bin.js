@@ -17,6 +17,7 @@ const fs = require("fs");
 const httpProxy = require("http-proxy");
 const log = require("fancy-log");
 const yargs = require("yargs/yargs");
+const zlib = require("zlib");
 const { hideBin } = require("yargs/helpers");
 const { subtle } = require("crypto").webcrypto;
 
@@ -149,15 +150,23 @@ const importSigningKey = (keyFilePath) => {
  * @param     {Object}     args            Command line arguments.
  */
 const serve = (harcSigningKey, args) => {
+
+    const verboseLog = (msg) => {
+        if (args.verbose || args.debug) {
+            log.info(msg);
+        }
+    }
+
+    const debugLog = (msg) => {
+        if (args.debug) {
+            log.info(msg);
+        }
+    }
+
     const proxyServer = httpProxy.createProxyServer({
         selfHandleResponse: true,
         target: args.upstream,
         xfwd: !args.noXFwdFor,
-    });
-
-    proxyServer.on("proxyReq", (proxyReq) => {
-        // Don't deal with gzip compression.
-        proxyReq.setHeader("Accept-Encoding", "*;q=1,gzip=0");
     });
 
     proxyServer.on("proxyRes", (proxyRes, request, response) => {
@@ -168,22 +177,60 @@ const serve = (harcSigningKey, args) => {
             `${request.socket.remoteAddress} - "${request.method} ${request.url} HTTP/${request.httpVersion}" ${proxyRes.statusCode} "${request.headers["user-agent"]}"`,
         );
 
+        // Ensure correct HTTP reponse status is set.
+        // Not sure why this has to be manually done...
+        response.statusCode = proxyRes.statusCode;
+        response.statusMessage = proxyRes.statusMessage;
+
         proxyRes.on("data", (chunk) => {
             responseContent.push(chunk);
         });
 
         // Last data chunk received.
         proxyRes.on("end", async () => {
-            const content = Buffer.concat(responseContent).toString();
+            let content;
+            let encoding = "binary";
+
+            const contentType = (proxyRes.headers["content-type"] ?? "unknown").toLowerCase();
+            const contentEncoding = (proxyRes.headers["content-encoding"] ?? "none").toLowerCase();
+
+            if (contentType.includes("text/") || contentType.includes("charset=utf-8")) {
+                encoding = "utf-8";
+            }
+
+            if (contentEncoding.toLowerCase() === "gzip") {
+                content = zlib.gunzipSync(Buffer.concat(responseContent)).toString(encoding);
+            } else {
+                content = Buffer.concat(responseContent).toString(encoding);
+            }
 
             Object.keys(proxyRes.headers).forEach((k) => {
-                response.setHeader(k, proxyRes.headers[k]);
+                // Content already decompressed. No need to set encoding header.
+                if (k.toLowerCase() !== "content-encoding") {
+                    verboseLog(`${k} : ${proxyRes.headers[k]}`)
+                    response.setHeader(k, proxyRes.headers[k]);
+                }
             });
 
-            const contentType = response.getHeader("content-type") ?? "unknown";
+            if (response.hasHeader("content-length")) {
+                // If length mismatch, remove content-length and force chunked transfer to be safe.
+                if (parseInt(response.getHeader("content-length")) !== content.length) {
+                    response.removeHeader("content-length");
+                    response.setHeader("transfer-encoding", "chunked");
+                }
+            }
 
-            // Perform signing on HTML content only.
-            if (contentType.includes("text/html")) {
+            // Perform signing on text-based content only.
+            if (contentType.includes("text/")) {
+                // Generate hash digest using SHA256 algorithm in hex encoding.
+                // Useful for development/troubleshooting.
+                const digest = Buffer.from(
+                    await subtle.digest(HASH_ALGO, str2ab(content))
+                ).toString("hex");
+
+                response.setHeader("X-ARC-DIGEST", digest);
+                verboseLog(`X-ARC-DIGEST: ${digest}`);
+
                 // Generate digital signature using ECDSA-SHA256 algorithm in base64 encoding.
                 const signature = Buffer.from(
                     await subtle.sign(
@@ -198,13 +245,10 @@ const serve = (harcSigningKey, args) => {
 
                 // Set the signature in the response header.
                 response.setHeader("X-ARC-SIGNATURE", signature);
-
-                if (args.verbose) {
-                    log.info(`Signature: ${signature}`);
-                }
+                verboseLog(`X-ARC-SIGNATURE: ${signature}`);
             }
 
-            response.end(content);
+            response.end(content, encoding);
         });
     });
 
@@ -283,7 +327,7 @@ const main = () => {
     }
 
     importSigningKey(args.signingKey).then((harcSigningKey) => {
-        if (args.verbose) {
+        if (args.verbose || args.debug) {
             log.info(`Upstream Server: ${args.upstream}`);
             log.info(`HARC Signing Key: ${args.signingKey}`);
 
