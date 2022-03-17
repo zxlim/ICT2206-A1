@@ -15,7 +15,8 @@
 
 const fs = require("fs");
 const httpProxy = require("http-proxy");
-const log = require("fancy-log");
+const strftime = require("strftime");
+const supportsColour = require("color-support");
 const yargs = require("yargs/yargs");
 const zlib = require("zlib");
 const { hideBin } = require("yargs/helpers");
@@ -33,6 +34,49 @@ const CONTENT_TO_SIGN = [
     "application/xml",
     "application/atom+xml",
 ];
+
+/**
+ * Pretty console logger.
+ *
+ * @function  log
+ * @param     {String}  msg    The string to to log to console.
+ * @param     {String}  level  The log level. Accepts: ["verbose", "info", "warn", "error"]
+ */
+const log = (msg, level = "info") => {
+    const ts = strftime("%Y-%m-%d %H:%M:%S");
+
+    /* eslint-disable indent */
+    if (supportsColour()) {
+        switch (level) {
+            case "warn":
+                console.warn(`[\x1b[33m${ts}\x1b[0m] ${msg}`);
+                break;
+            case "error":
+                console.error(`[\x1b[31m${ts}\x1b[0m] ${msg}`);
+                break;
+            case "verbose":
+                console.debug(`[\x1b[32m${ts}\x1b[0m] ${msg}`);
+                break;
+            default:
+                console.info(`[\x1b[36m${ts}\x1b[0m] ${msg}`);
+        }
+    } else {
+        switch (level) {
+            case "warn":
+                console.warn(`[${ts}] ${msg}`);
+                break;
+            case "error":
+                console.error(`[${ts}] ${msg}`);
+                break;
+            case "verbose":
+                console.debug(`[${ts}] ${msg}`);
+                break;
+            default:
+                console.info(`[${ts}] ${msg}`);
+        }
+    }
+    /* eslint-enable indent */
+};
 
 /**
  * Converts a String into a JavaScript ArrayBuffer object.
@@ -159,12 +203,6 @@ const importSigningKey = (keyFilePath) => {
  * @param     {Object}     args            Command line arguments.
  */
 const serve = (harcSigningKey, args) => {
-    const verboseLog = (msg) => {
-        if (args.verbose || args.debug) {
-            log.info(msg);
-        }
-    };
-
     const proxyServer = httpProxy.createProxyServer({
         selfHandleResponse: true,
         target: args.upstream,
@@ -172,15 +210,46 @@ const serve = (harcSigningKey, args) => {
     });
 
     proxyServer.on("proxyRes", (proxyRes, request, response) => {
+        /**
+         * Common Log Format (CLF) HTTP request logger.
+         *
+         * @param {int}    contentLength  Response content length.
+         * @param {String} digest         Response content digest.
+         * @param {String} signature      Response content signature.
+         */
+        const commonLogFormat = (
+            contentLength,
+            digest = null,
+            signature = null,
+        ) => {
+            let extra = "";
+
+            if (args.verbose && digest !== null && signature !== null) {
+                extra = supportsColour()
+                    ? `\x1b[32m${signature} sha256:${digest}\x1b[0m`
+                    : `${signature} sha256:${digest}`;
+            }
+
+            // Use X-Forwarded-For if present in request header.
+            const client = request.headers["x-forwarded-for"]
+                ? request.headers["x-forwarded-for"].split(",")[0].trim()
+                : request.socket.remoteAddress;
+
+            // Log the request to console usng the common log format.
+            console.info(
+                `${client} - - [${strftime("%d/%b/%Y:%H:%M:%S %z")}] "${
+                    request.method
+                } ${request.url} HTTP/${request.httpVersion}" ${
+                    proxyRes.statusCode
+                } ${contentLength} "${proxyRes.headers.referrer ?? "-"}" "${
+                    request.headers["user-agent"]
+                }" ${extra}`.trim(),
+            );
+        };
+
         const responseContent = [];
 
-        // Log the request to console. Similar to a web server's "access log".
-        log.info(
-            `${request.socket.remoteAddress} - "${request.method} ${request.url} HTTP/${request.httpVersion}" ${proxyRes.statusCode} "${request.headers["user-agent"]}"`,
-        );
-
         // Ensure correct HTTP reponse status is set.
-        // Not sure why this has to be manually done...
         response.statusCode = proxyRes.statusCode;
         response.statusMessage = proxyRes.statusMessage;
 
@@ -194,10 +263,10 @@ const serve = (harcSigningKey, args) => {
             let encoding = "binary";
 
             const contentType = (
-                proxyRes.headers["content-type"] ?? "unknown"
+                proxyRes.headers["content-type"] ?? "-"
             ).toLowerCase();
             const contentEncoding = (
-                proxyRes.headers["content-encoding"] ?? "none"
+                proxyRes.headers["content-encoding"] ?? "-"
             ).toLowerCase();
 
             if (
@@ -218,7 +287,6 @@ const serve = (harcSigningKey, args) => {
             Object.keys(proxyRes.headers).forEach((k) => {
                 // Content already decompressed. No need to set encoding header.
                 if (k.toLowerCase() !== "content-encoding") {
-                    verboseLog(`${k} : ${proxyRes.headers[k]}`);
                     response.setHeader(k, proxyRes.headers[k]);
                 }
             });
@@ -243,10 +311,9 @@ const serve = (harcSigningKey, args) => {
                 // Useful for development/troubleshooting.
                 const digest = Buffer.from(
                     await subtle.digest(HASH_ALGO, str2ab(content)),
-                ).toString("hex");
+                ).toString("base64");
 
                 response.setHeader("X-ARC-DIGEST", digest);
-                verboseLog(`X-ARC-DIGEST: ${digest}`);
 
                 // Generate digital signature using ECDSA-SHA256 algorithm in base64 encoding.
                 const signature = Buffer.from(
@@ -262,26 +329,22 @@ const serve = (harcSigningKey, args) => {
 
                 // Set the signature in the response header.
                 response.setHeader("X-ARC-SIGNATURE", signature);
-                verboseLog(`X-ARC-SIGNATURE: ${signature}`);
+
+                commonLogFormat(content.length, digest, signature);
+            } else {
+                commonLogFormat(content.length);
             }
 
             response.end(content, encoding);
         });
     });
 
-    log.info(`HARC signing server listening on: ${args.bind}:${args.port}/tcp`);
     proxyServer.listen(args.port, args.bind);
 };
 
 const main = () => {
     const args = yargs(hideBin(process.argv))
         .usage("HTTP Authenticated Response Content (HARC) Signing Server.")
-        .option("port", {
-            alias: "p",
-            type: "integer",
-            description: "TCP port to listen on.",
-            default: 5000,
-        })
         .option("upstream", {
             alias: "u",
             type: "string",
@@ -299,6 +362,12 @@ const main = () => {
             type: "string",
             description: "Local address to bind to.",
             default: "0.0.0.0",
+        })
+        .option("port", {
+            alias: "p",
+            type: "integer",
+            description: "TCP port to listen on.",
+            default: 5000,
         })
         .option("noXFwdFor", {
             boolean: true,
@@ -344,14 +413,16 @@ const main = () => {
     }
 
     importSigningKey(args.signingKey).then((harcSigningKey) => {
-        if (args.verbose || args.debug) {
-            log.info(`Upstream Server: ${args.upstream}`);
-            log.info(`HARC Signing Key: ${args.signingKey}`);
-
-            if (args.noXFwdFor) {
-                log.info("Disabled X-FORWARDED-FOR HTTP header.");
-            }
+        if (args.verbose) {
+            log("Verbose logging enabled.", "verbose");
         }
+        if (args.noXFwdFor) {
+            log("Disabled X-FORWARDED-FOR HTTP header.", "warn");
+        }
+
+        log(`Upstream Server: ${args.upstream}`);
+        log(`HARC Signing Key: ${args.signingKey}`);
+        log(`HARC signing server listening on: ${args.bind}:${args.port}/tcp`);
 
         serve(harcSigningKey, args);
     });
