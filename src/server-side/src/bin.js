@@ -25,6 +25,15 @@ const EC_TYPE = "ECDSA";
 const EC_CURVE = "P-256";
 const HASH_ALGO = "SHA-256";
 
+// Text-like content with application prefix.
+const CONTENT_TO_SIGN = [
+    "application/javascript",
+    "application/json",
+    "application/ld+json",
+    "application/xml",
+    "application/atom+xml",
+];
+
 /**
  * Converts a String into a JavaScript ArrayBuffer object.
  *
@@ -226,7 +235,10 @@ const serve = (harcSigningKey, args) => {
             }
 
             // Perform signing on text-based content only.
-            if (contentType.includes("text/")) {
+            if (
+                contentType.includes("text/") ||
+                CONTENT_TO_SIGN.includes(contentType)
+            ) {
                 // Generate hash digest using SHA256 algorithm in hex encoding.
                 // Useful for development/troubleshooting.
                 const digest = Buffer.from(
