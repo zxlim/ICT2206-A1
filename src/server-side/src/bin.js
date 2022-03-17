@@ -150,18 +150,11 @@ const importSigningKey = (keyFilePath) => {
  * @param     {Object}     args            Command line arguments.
  */
 const serve = (harcSigningKey, args) => {
-
     const verboseLog = (msg) => {
         if (args.verbose || args.debug) {
             log.info(msg);
         }
-    }
-
-    const debugLog = (msg) => {
-        if (args.debug) {
-            log.info(msg);
-        }
-    }
+    };
 
     const proxyServer = httpProxy.createProxyServer({
         selfHandleResponse: true,
@@ -191,15 +184,24 @@ const serve = (harcSigningKey, args) => {
             let content;
             let encoding = "binary";
 
-            const contentType = (proxyRes.headers["content-type"] ?? "unknown").toLowerCase();
-            const contentEncoding = (proxyRes.headers["content-encoding"] ?? "none").toLowerCase();
+            const contentType = (
+                proxyRes.headers["content-type"] ?? "unknown"
+            ).toLowerCase();
+            const contentEncoding = (
+                proxyRes.headers["content-encoding"] ?? "none"
+            ).toLowerCase();
 
-            if (contentType.includes("text/") || contentType.includes("charset=utf-8")) {
+            if (
+                contentType.includes("text/") ||
+                contentType.includes("charset=utf-8")
+            ) {
                 encoding = "utf-8";
             }
 
             if (contentEncoding.toLowerCase() === "gzip") {
-                content = zlib.gunzipSync(Buffer.concat(responseContent)).toString(encoding);
+                content = zlib
+                    .gunzipSync(Buffer.concat(responseContent))
+                    .toString(encoding);
             } else {
                 content = Buffer.concat(responseContent).toString(encoding);
             }
@@ -207,14 +209,17 @@ const serve = (harcSigningKey, args) => {
             Object.keys(proxyRes.headers).forEach((k) => {
                 // Content already decompressed. No need to set encoding header.
                 if (k.toLowerCase() !== "content-encoding") {
-                    verboseLog(`${k} : ${proxyRes.headers[k]}`)
+                    verboseLog(`${k} : ${proxyRes.headers[k]}`);
                     response.setHeader(k, proxyRes.headers[k]);
                 }
             });
 
             if (response.hasHeader("content-length")) {
                 // If length mismatch, remove content-length and force chunked transfer to be safe.
-                if (parseInt(response.getHeader("content-length")) !== content.length) {
+                if (
+                    parseInt(response.getHeader("content-length"), 10) !==
+                    content.length
+                ) {
                     response.removeHeader("content-length");
                     response.setHeader("transfer-encoding", "chunked");
                 }
@@ -225,7 +230,7 @@ const serve = (harcSigningKey, args) => {
                 // Generate hash digest using SHA256 algorithm in hex encoding.
                 // Useful for development/troubleshooting.
                 const digest = Buffer.from(
-                    await subtle.digest(HASH_ALGO, str2ab(content))
+                    await subtle.digest(HASH_ALGO, str2ab(content)),
                 ).toString("hex");
 
                 response.setHeader("X-ARC-DIGEST", digest);
