@@ -12,6 +12,7 @@
     "format": "prettier --write './src/*.js'",
     "clean": "rm -rf ./dist/",
     "build": "pkg --out-path ./dist --compress Brotli --targets node16-linux .",
+    "build-docker": "docker build --tag harc-server .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Team EMB",
