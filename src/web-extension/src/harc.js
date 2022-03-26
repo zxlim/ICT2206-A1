@@ -13,7 +13,7 @@
 /* eslint-disable no-console */
 
 // DEVELOPMENT USE ONLY.
-const DEBUG = true;
+const DEBUG = false;
 
 const DIGEST_ALGO = "SHA-256";
 const DNS_DOH_RESOLVER = "https://1.1.1.1/dns-query";
