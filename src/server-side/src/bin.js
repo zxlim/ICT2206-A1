@@ -22,12 +22,16 @@ const zlib = require("zlib");
 const { hideBin } = require("yargs/helpers");
 const { subtle } = require("crypto").webcrypto;
 
-const EC_TYPE = "ECDSA";
+const CRYPTO_OUTPUT_ENCODING = "base64";
+const DIGEST_ALGO = "SHA-256";
 const EC_CURVE = "P-256";
-const HASH_ALGO = "SHA-256";
+const EC_TYPE = "ECDSA";
+const HARC_HEADER_ALGO = "X-ARC-ALGO";
+const HARC_HEADER_DIGEST = "X-ARC-DIGEST";
+const HARC_HEADER_SIGNATURE = "X-ARC-SIGNATURE";
 
 // Text-like content with application prefix.
-const CONTENT_TO_SIGN = [
+const APP_CONTENT_TYPE_TO_SIGN = [
     "application/javascript",
     "application/json",
     "application/ld+json",
@@ -38,14 +42,13 @@ const CONTENT_TO_SIGN = [
 /**
  * Pretty console logger.
  *
- * @function  log
+ * @function  prettyLog
  * @param     {String}  msg    The string to to log to console.
  * @param     {String}  level  The log level. Accepts: ["verbose", "info", "warn", "error"]
  */
-const log = (msg, level = "info") => {
+const prettyLog = (msg, level = "info") => {
     const ts = strftime("%Y-%m-%d %H:%M:%S");
 
-    /* eslint-disable indent */
     if (supportsColour()) {
         switch (level) {
             case "warn":
@@ -75,7 +78,6 @@ const log = (msg, level = "info") => {
                 console.info(`[${ts}] ${msg}`);
         }
     }
-    /* eslint-enable indent */
 };
 
 /**
@@ -86,14 +88,14 @@ const log = (msg, level = "info") => {
  * @returns   {ArrayBuffer}  The ArrayBuffer instance.
  */
 const str2ab = (str) => {
-    const buf = new ArrayBuffer(str.length);
-    const bufView = new Uint8Array(buf);
+    const ab = new ArrayBuffer(str.length);
+    const buffer = new Uint8Array(ab);
 
     for (let i = 0; i < str.length; i++) {
-        bufView[i] = str.charCodeAt(i);
+        buffer[i] = str.charCodeAt(i);
     }
 
-    return buf;
+    return buffer;
 };
 
 /**
@@ -166,7 +168,6 @@ const atob = (b64String) => {
 /**
  * Imports a ECDSA P-256 private key for use in JavaScript digital signature cryptography.
  *
- * @async
  * @function  importSigningKey
  * @param     {String}  keyFilePath  The file path to the private key to import.
  * @returns   {Promise}              The Promise object for the importKey operation.
@@ -209,6 +210,7 @@ const serve = (harcSigningKey, args) => {
         xfwd: !args.noXFwdFor,
     });
 
+    // HTTP Response Event Listener.
     proxyServer.on("proxyRes", (proxyRes, request, response) => {
         /**
          * Common Log Format (CLF) HTTP request logger.
@@ -223,36 +225,63 @@ const serve = (harcSigningKey, args) => {
             signature = null,
         ) => {
             let extra = "";
-
-            if (args.verbose && digest !== null && signature !== null) {
-                extra = supportsColour()
-                    ? `\x1b[32m${signature} sha256:${digest}\x1b[0m`
-                    : `${signature} sha256:${digest}`;
-            }
+            let { statusCode } = proxyRes;
+            let ts = strftime("%d/%b/%Y:%H:%M:%S %z");
 
             // Use X-Forwarded-For if present in request header.
-            const client = request.headers["x-forwarded-for"]
+            let client = request.headers["x-forwarded-for"]
                 ? request.headers["x-forwarded-for"].split(",")[0].trim()
                 : request.socket.remoteAddress;
 
+            if (args.verbose && signature !== null) {
+                const digestAlgo = DIGEST_ALGO.replace("-", "");
+                const sigAlgo = `${EC_TYPE}_${digestAlgo}`;
+
+                let digestLog = "";
+
+                if (digest !== null) {
+                    digestLog = supportsColour()
+                        ? `${digestAlgo}:\x1b[32m${digest}\x1b[0m`
+                        : `${digestAlgo}:${digest}`;
+                }
+
+                extra = supportsColour()
+                    ? `${digestLog} ${sigAlgo}:\x1b[32m${signature}\x1b[0m`.trim()
+                    : `${digestLog} ${sigAlgo}:${signature}`.trim();
+            }
+
+            if (supportsColour()) {
+                client = `\x1b[35m${client}\x1b[0m`;
+                ts = `\x1b[36m${ts}\x1b[0m`;
+
+                if (proxyRes.statusCode >= 200 && proxyRes.statusCode <= 299) {
+                    statusCode = `\x1b[32m${proxyRes.statusCode}\x1b[0m`;
+                } else if (
+                    proxyRes.statusCode >= 400 &&
+                    proxyRes.statusCode <= 599
+                ) {
+                    statusCode = `\x1b[31m${proxyRes.statusCode}\x1b[0m`;
+                }
+            }
+
             // Log the request to console usng the common log format.
             console.info(
-                `${client} - - [${strftime("%d/%b/%Y:%H:%M:%S %z")}] "${
-                    request.method
-                } ${request.url} HTTP/${request.httpVersion}" ${
-                    proxyRes.statusCode
-                } ${contentLength} "${proxyRes.headers.referrer ?? "-"}" "${
-                    request.headers["user-agent"]
-                }" ${extra}`.trim(),
+                `${client} - - [${ts}] "${request.method} ${request.url} HTTP/${
+                    request.httpVersion
+                }" ${statusCode} ${contentLength} "${
+                    proxyRes.headers.referrer ?? "-"
+                }" "${request.headers["user-agent"]}" ${extra}`.trim(),
             );
         };
 
+        // Temporary buffer for incoming response content.
         const responseContent = [];
 
         // Ensure correct HTTP reponse status is set.
         response.statusCode = proxyRes.statusCode;
         response.statusMessage = proxyRes.statusMessage;
 
+        // Add incoming data chunks to temporary buffer.
         proxyRes.on("data", (chunk) => {
             responseContent.push(chunk);
         });
@@ -269,10 +298,8 @@ const serve = (harcSigningKey, args) => {
                 proxyRes.headers["content-encoding"] ?? "-"
             ).toLowerCase();
 
-            if (
-                contentType.includes("text/") ||
-                contentType.includes("charset=utf-8")
-            ) {
+            if (contentType.includes("charset=utf-8")) {
+                // Only use UTF-8 if charset is specified.
                 encoding = "utf-8";
             }
 
@@ -284,6 +311,11 @@ const serve = (harcSigningKey, args) => {
                 content = Buffer.concat(responseContent).toString(encoding);
             }
 
+            // Hack to clear array, don't want memory to pile up. CONTROVERSIAL.
+            // See: https://stackoverflow.com/a/1232046
+            responseContent.length = 0;
+            // responseContent.splice(0, responseContent.length);
+
             Object.keys(proxyRes.headers).forEach((k) => {
                 // Content already decompressed. No need to set encoding header.
                 if (k.toLowerCase() !== "content-encoding") {
@@ -292,57 +324,82 @@ const serve = (harcSigningKey, args) => {
             });
 
             if (response.hasHeader("content-length")) {
-                // If length mismatch, remove content-length and force chunked transfer to be safe.
+                // If mismatch, use the content length that HARC calculated instead.
                 if (
                     parseInt(response.getHeader("content-length"), 10) !==
                     content.length
                 ) {
-                    response.removeHeader("content-length");
-                    response.setHeader("transfer-encoding", "chunked");
+                    // response.removeHeader("content-length");
+                    // response.setHeader("transfer-encoding", "chunked");
+                    response.setHeader("content-length", content.length);
                 }
             }
 
-            // Perform signing on text-based content only.
+            let digest = null;
+            let signature = null;
+
+            // Perform signing on "text-based" content only.
             if (
                 contentType.includes("text/") ||
-                CONTENT_TO_SIGN.includes(contentType)
+                APP_CONTENT_TYPE_TO_SIGN.includes(contentType)
             ) {
-                // Generate hash digest using SHA256 algorithm in hex encoding.
-                // Useful for development/troubleshooting.
-                const digest = Buffer.from(
-                    await subtle.digest(HASH_ALGO, str2ab(content)),
-                ).toString("base64");
+                // Useful if support for multiple algorithms is needed.
+                // Format: SIGNATURE_ALGORITHM; DIGEST_ALGORITHM
+                response.setHeader(
+                    HARC_HEADER_ALGO,
+                    `${EC_TYPE}_${EC_CURVE}; ${DIGEST_ALGO}`,
+                );
 
-                response.setHeader("X-ARC-DIGEST", digest);
+                if (args.digestHeader) {
+                    // Useful for development/troubleshooting.
+                    digest = Buffer.from(
+                        await subtle.digest(DIGEST_ALGO, str2ab(content)),
+                    ).toString(CRYPTO_OUTPUT_ENCODING);
 
-                // Generate digital signature using ECDSA-SHA256 algorithm in base64 encoding.
-                const signature = Buffer.from(
+                    response.setHeader(HARC_HEADER_DIGEST, digest);
+                }
+
+                // Generate digital signature of response content.
+                signature = Buffer.from(
                     await subtle.sign(
                         {
                             name: EC_TYPE,
-                            hash: HASH_ALGO,
+                            hash: DIGEST_ALGO,
                         },
                         harcSigningKey,
                         str2ab(content),
                     ),
-                ).toString("base64");
+                ).toString(CRYPTO_OUTPUT_ENCODING);
 
-                // Set the signature in the response header.
-                response.setHeader("X-ARC-SIGNATURE", signature);
-
-                commonLogFormat(content.length, digest, signature);
-            } else {
-                commonLogFormat(content.length);
+                response.setHeader(HARC_HEADER_SIGNATURE, signature);
             }
 
+            // Log the HTTP request to console and send response to client.
+            commonLogFormat(content.length, digest, signature);
             response.end(content, encoding);
+        });
+    });
+
+    // Signal handler for graceful exit.
+    ["SIGINT", "SIGTERM"].forEach((signal) => {
+        process.on(signal, () => {
+            console.log("");
+            prettyLog("Stopping server...", "warn");
+            proxyServer.close();
+            process.exit(0);
         });
     });
 
     proxyServer.listen(args.port, args.bind);
 };
 
+/**
+ * Application entrypoint.
+ *
+ * @function  main
+ */
 const main = () => {
+    // Command-line arguments. Use '-h' or '--help' to display help menu.
     const args = yargs(hideBin(process.argv))
         .usage("HTTP Authenticated Response Content (HARC) Signing Server.")
         .option("upstream", {
@@ -369,6 +426,10 @@ const main = () => {
             description: "TCP port to listen on.",
             default: 5000,
         })
+        .option("digestHeader", {
+            boolean: true,
+            description: `Enable the ${HARC_HEADER_DIGEST} HTTP header.`,
+        })
         .option("noXFwdFor", {
             boolean: true,
             description: "Disable the X-FORWARDED-FOR HTTP header.",
@@ -392,40 +453,76 @@ const main = () => {
         .alias("h", "help").argv;
 
     if (args.port < 1 || args.port > 65535) {
-        console.error(
+        prettyLog(
             `Failed to bind to port '${args.port}': Invalid port number`,
+            "error",
         );
         process.exit(1);
     }
 
+    // Ensure specified signing key exists and is accessible on the filesystem.
     const keyFileStat = fs.statSync(args.signingKey, { throwIfNoEntry: false });
 
     if (keyFileStat === undefined) {
-        console.error(
+        prettyLog(
             `Failed to load signing key '${args.signingKey}': No such file`,
+            "error",
         );
         process.exit(1);
     } else if (!keyFileStat.isFile()) {
-        console.error(
+        prettyLog(
             `Failed to load signing key '${args.signingKey}': Not a file`,
+            "error",
         );
         process.exit(1);
     }
 
-    importSigningKey(args.signingKey).then((harcSigningKey) => {
-        if (args.verbose) {
-            log("Verbose logging enabled.", "verbose");
-        }
-        if (args.noXFwdFor) {
-            log("Disabled X-FORWARDED-FOR HTTP header.", "warn");
-        }
+    try {
+        importSigningKey(args.signingKey)
+            .then((harcSigningKey) => {
+                if (args.verbose) {
+                    prettyLog("Enabled verbose logging.", "verbose");
+                }
+                if (args.digestHeader) {
+                    prettyLog(
+                        `Enabled ${HARC_HEADER_DIGEST} HTTP header.`,
+                        "verbose",
+                    );
+                }
+                if (args.noXFwdFor) {
+                    prettyLog("Disabled X-FORWARDED-FOR HTTP header.", "warn");
+                }
 
-        log(`Upstream Server: ${args.upstream}`);
-        log(`HARC Signing Key: ${args.signingKey}`);
-        log(`HARC signing server listening on: ${args.bind}:${args.port}/tcp`);
+                prettyLog(`Upstream Server: ${args.upstream}`);
+                prettyLog(`HARC Signing Key: ${args.signingKey}`);
+                prettyLog(
+                    `HARC signing server listening on: ${args.bind}:${args.port}/tcp`,
+                );
 
-        serve(harcSigningKey, args);
-    });
+                try {
+                    serve(harcSigningKey, args);
+                } catch (error) {
+                    prettyLog(
+                        "HARC Signing Server has encountered an error.",
+                        "error",
+                    );
+                    prettyLog(error.stack, "error");
+                    process.exit(1);
+                }
+            })
+            .catch((error) => {
+                prettyLog(
+                    `Failed to load signing key '${args.signingKey}'`,
+                    "error",
+                );
+                prettyLog(error.stack, "error");
+                process.exit(1);
+            });
+    } catch (error) {
+        prettyLog(`Failed to load signing key '${args.signingKey}'`, "error");
+        prettyLog(error.stack, "error");
+        process.exit(1);
+    }
 };
 
 main();
