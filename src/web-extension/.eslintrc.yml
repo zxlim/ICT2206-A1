@@ -1,0 +1,20 @@
+env:
+  browser: true
+  es6: true
+  webextensions: true
+extends:
+  - airbnb-base
+  - plugin:prettier/recommended
+parserOptions:
+  ecmaVersion: "latest"
+  sourceType: "module"
+rules:
+  arrow-body-style: ["error", "always"]
+  import/no-extraneous-dependencies: ["error", { "devDependencies": true }]
+  indent: ["error", 4, { SwitchCase: 1}]
+  key-spacing: ["error", { "mode": "minimum" }]
+  no-multi-spaces: ["error", { exceptions: { "VariableDeclarator": true } }]
+  no-plusplus: ["error", { "allowForLoopAfterthoughts": true }]
+  object-shorthand: ["error", "consistent"]
+  quotes: ["error", "double", "avoid-escape"]
+  strict: ["error", "global"]

@@ -1,29 +1,29 @@
 {
-
   "manifest_version": 2,
-  "name": "WhoAreYou",
-  "version": "1.0",
-  "description": "Browser extension for validating response signatures from WAU protocol ",
-
-  "permissions": [
-    "webRequest",
-    "webRequestBlocking",
-    "dns",
-    "storage",
-    "unlimitedStorage",
-    "notifications",
-    "<all_urls>"
-  ],
-
-  // "content_scripts": [
-  //   {
-  //     "matches": ["*://*/*"],
-  //     "js": ["doh.js"]
-  //   }
-  // ],
-
-    "background": {
-      "scripts": ["doh.min.js","psl.min.js","core.js"]
+  "name": "HTTP Authenticated Response Content (HARC)",
+  "version": "1.0.0",
+  "description": "HTTP Authenticated Response Content (HARC): Client-side Verifier Extension",
+  "developer": {
+    "name": "Team EMB",
+    "url": "https://github.com/zxlim/ICT2206-A1/"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "harc@team-emb.2206.ict.singaporetech.edu.sg"
     }
-
+  },
+  "permissions": [
+    "<all_urls>",
+    "activeTab",
+    "notifications",
+    "webRequest",
+    "webRequestBlocking"
+  ],
+  "background": {
+    "scripts": [
+      "src/lib/doh.min.js",
+      "src/lib/psl.min.js",
+      "src/harc.js"
+    ]
+  }
 }

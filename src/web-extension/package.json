@@ -1,0 +1,29 @@
+{
+  "name": "harc-client-firefox",
+  "version": "1.0.0",
+  "description": "HTTP Authenticated Response Content (HARC): Client-side Verifier Extension (Firefox)",
+  "main": "src/harc.js",
+  "scripts": {
+    "eslint": "eslint",
+    "lint": "eslint --color --ext .js ./src/",
+    "format": "prettier --write './src/*.js'",
+    "clean": "rm -rf ./web-ext-artifacts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "firefox": "web-ext run",
+    "firefox-verbose": "web-ext run --verbose",
+    "firefox-dev-macos": "web-ext run --firefox=\"/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox-bin\"",
+    "firefox-dev-macos-verbose": "web-ext run --verbose --firefox=\"/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox-bin\""
+  },
+  "author": "Team EMB",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "eslint": "^8.11.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.6.1"
+  },
+  "dependencies": {
+    "web-ext": "^6.8.0"
+  }
+}

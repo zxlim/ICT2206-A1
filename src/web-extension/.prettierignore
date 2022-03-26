@@ -1,0 +1,2 @@
+# Don't prettify minified JavaScript files.
+*.min.js
