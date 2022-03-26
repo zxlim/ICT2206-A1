@@ -13,16 +13,25 @@
 /* eslint-disable no-console */
 
 // DEVELOPMENT USE ONLY.
-const DEBUG = false;
+const DEBUG = true;
 
+const DIGEST_ALGO = "SHA-256";
 const DNS_DOH_RESOLVER = "https://1.1.1.1/dns-query";
 const EC_CURVE = "P-256";
 const EC_TYPE = "ECDSA";
-const HARC_DNS_PREFIX = "._arc.";
+const HARC_DNS_SUBDOMAIN = "_arc";
 const HARC_HEADER_DIGEST = "x-arc-digest";
 const HARC_HEADER_SIGNATURE = "x-arc-signature";
-const HASH_ALGO = "SHA-256";
 const RESPONSE_MAP = new Map();
+
+// Text-like content with application prefix.
+const APP_CONTENT_TYPE_TO_VERIFY = [
+    "application/javascript",
+    "application/json",
+    "application/ld+json",
+    "application/xml",
+    "application/atom+xml",
+];
 
 /**
  * Error logger.
@@ -91,23 +100,24 @@ const invokeFailure = (action) => {
  * @param     {details}  request  The request details.
  */
 const captureResponseContent = (request) => {
+    const decoder = new TextDecoder("utf-8");
+    const responseChunks = [];
     const responseFilter = browser.webRequest.filterResponseData(
         request.requestId,
     );
-    const content = [];
-    const decoder = new TextDecoder("utf-8");
-    const encoder = new TextEncoder("utf-8");
 
     responseFilter.ondata = (event) => {
-        const data = decoder.decode(event.data, { stream: true });
-        content.push(data);
-        responseFilter.write(encoder.encode(data));
+        // event.data is an ArrayBuffer.
+        const chunk = decoder.decode(event.data, { stream: true });
+        responseChunks.push(chunk);
+        responseFilter.write(event.data);
     };
 
     // eslint-disable-next-line no-unused-vars
     responseFilter.onstop = (event) => {
         responseFilter.close();
-        RESPONSE_MAP.set(request.url, str2ab(content.join("")));
+        responseChunks.push(decoder.decode());
+        RESPONSE_MAP.set(request.url, str2ab(responseChunks.join("")));
     };
 };
 
@@ -123,7 +133,7 @@ const captureResponseContent = (request) => {
 const getHARCDNSPayload = async (url) => {
     // eslint-disable-next-line no-undef
     const domain = psl.parse(url.hostname);
-    const dnsQueryDomain = `${domain.subdomain}${HARC_DNS_PREFIX}${domain.domain}`;
+    const dnsQueryDomain = `${domain.subdomain}.${HARC_DNS_SUBDOMAIN}.${domain.domain}`;
 
     // eslint-disable-next-line no-undef
     const resolver = new doh.DohResolver(DNS_DOH_RESOLVER);
@@ -174,31 +184,47 @@ const verifyResponseContent = async (response) => {
                 return;
             }
 
-            let publicKey;
-            let signature = "";
-
-            const dnsPayload = await getHARCDNSPayload(new URL(response.url));
-            const action = dnsPayload[0];
-            const publicKeyDer = dnsPayload[1];
+            let contentType = "";
+            let publicKey = null;
+            let signature = null;
 
             response.responseHeaders.forEach((header) => {
-                switch (header.name) {
+                switch (header.name.toLowerCase()) {
                     case HARC_HEADER_DIGEST:
                         logDebug(`Digest: ${header.value.trim()}`);
                         break;
                     case HARC_HEADER_SIGNATURE:
-                        signature = str2ab(window.atob(header.value.trim()));
+                        try {
+                            signature = str2ab(window.atob(header.value.trim()));
+                        } catch (error) {
+                            logError(error);
+                        }
+                        break;
+                    case "content-type":
+                        contentType = header.value.trim();
                         break;
                     default:
                     // Do nothing.
                 }
             });
 
-            if (signature.length === 0) {
-                if (
-                    (action === null || action !== "enforce") &&
-                    publicKeyDer === null
-                ) {
+            if (
+                !contentType.startsWith("text/") &&
+                !APP_CONTENT_TYPE_TO_VERIFY.includes(contentType)
+            ) {
+                // Unsupported content type. Skip verification.
+                logDebug(
+                    `Skipping verification for '${response.url}': Unsupported content type '${contentType}'`,
+                );
+                return;
+            }
+
+            const dnsPayload = await getHARCDNSPayload(new URL(response.url));
+            const action = dnsPayload[0];
+            const publicKeyDer = dnsPayload[1];
+
+            if (signature === null) {
+                if (action === null && publicKeyDer === null) {
                     // HARC is not enabled on this domain.
                     logDebug("HARC not enabled on this domain.");
                     return;
@@ -245,18 +271,18 @@ const verifyResponseContent = async (response) => {
                 return;
             }
 
-            const responseContent = RESPONSE_MAP.get(response.url);
-            RESPONSE_MAP.delete(response.url);
-
             const signatureVerified = await crypto.subtle.verify(
                 {
                     name: EC_TYPE,
-                    hash: HASH_ALGO,
+                    hash: DIGEST_ALGO,
                 },
                 publicKey,
                 signature,
-                responseContent,
+                RESPONSE_MAP.get(response.url),
             );
+
+            // Data stored in RESPONSE_MAP no longer needed.
+            RESPONSE_MAP.delete(response.url);
 
             if (!signatureVerified) {
                 console.error("[HARC] Signature validation failed!");
