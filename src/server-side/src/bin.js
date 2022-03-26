@@ -289,7 +289,7 @@ const serve = (harcSigningKey, args) => {
         // Last data chunk received.
         proxyRes.on("end", async () => {
             let content;
-            let encoding = "binary";
+            let encoding = "latin1";
 
             const contentType = (
                 proxyRes.headers["content-type"] ?? "-"
@@ -298,8 +298,12 @@ const serve = (harcSigningKey, args) => {
                 proxyRes.headers["content-encoding"] ?? "-"
             ).toLowerCase();
 
-            if (contentType.includes("charset=utf-8")) {
-                // Only use UTF-8 if charset is specified.
+            if (
+                contentType.startsWith("text/html") ||
+                contentType.includes("charset=utf-8") ||
+                contentType.includes("charset=utf8")
+            ) {
+                // Only use UTF-8 if HTML or if charset is specified.
                 encoding = "utf-8";
             }
 
