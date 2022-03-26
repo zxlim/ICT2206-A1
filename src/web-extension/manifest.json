@@ -15,7 +15,6 @@
   "permissions": [
     "<all_urls>",
     "activeTab",
-    "notifications",
     "webRequest",
     "webRequestBlocking"
   ],
