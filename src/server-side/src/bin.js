@@ -324,14 +324,13 @@ const serve = (harcSigningKey, args) => {
             });
 
             if (response.hasHeader("content-length")) {
-                // If mismatch, use the content length that HARC calculated instead.
+                // If length mismatch, remove content-length and force chunked transfer to be safe.
                 if (
                     parseInt(response.getHeader("content-length"), 10) !==
                     content.length
                 ) {
-                    // response.removeHeader("content-length");
-                    // response.setHeader("transfer-encoding", "chunked");
-                    response.setHeader("content-length", content.length);
+                    response.removeHeader("content-length");
+                    response.setHeader("transfer-encoding", "chunked");
                 }
             }
 
