@@ -1,0 +1,2 @@
+# Don't lint minified JavaScript files.
+*.min.js

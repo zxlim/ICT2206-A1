@@ -1,0 +1,38 @@
+{
+  "manifest_version": 2,
+  "name": "HTTP Authenticated Response Content (HARC)",
+  "version": "1.0.0",
+  "description": "HTTP Authenticated Response Content (HARC): Client-side Verifier Extension",
+  "developer": {
+    "name": "Team EMB",
+    "url": "https://github.com/zxlim/ICT2206-A1/"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "harc@team-emb.2206.ict.singaporetech.edu.sg"
+    }
+  },
+  "permissions": [
+    "<all_urls>",
+    "activeTab",
+    "dns",
+    "webRequest",
+    "webRequestBlocking"
+  ],
+  "icons": {
+    "48": "src/icons/harc-48.png",
+    "96": "src/icons/harc-96.png"
+  },
+  "browser_action": {
+    "default_icon": "src/icons/harc-32.png",
+    "default_title": "HTTP Authenticated Response Content (HARC)",
+    "default_popup": "src/popup/index.html"
+  },
+  "background": {
+    "scripts": [
+      "src/lib/doh.min.js",
+      "src/lib/psl.min.js",
+      "src/harc.js"
+    ]
+  }
+}

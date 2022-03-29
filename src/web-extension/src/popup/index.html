@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'"
+        />
+        <meta name="author" content="Team EMB" />
+        <meta
+            name="description"
+            content="HTTP Authenticated Response Content (HARC)"
+        />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>HTTP Authenticated Response Content (HARC)</title>
+        <link
+            rel="stylesheet"
+            href="popup.css"
+            crossorigin="anonymous"
+            integrity="sha256-u0XoR8JFBCVDRwbMEC3B4OIurZMcIjb/GolO6NqkIZI="
+        />
+    </head>
+    <body>
+        <div class="container">
+            <h2 class="header">
+                <img src="/src/icons/harc-32.png" />
+                &nbsp; HARC Preference
+            </h2>
+            <hr />
+
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="selector-doh-choice">
+                            DNS-over-HTTPS (DOH) Server Selection
+                        </label>
+                        <select class="form-control" id="selector-doh-choice">
+                            <option
+                                value="cloudflare-mozilla"
+                                selected="selected"
+                            >
+                                Cloudflare (Mozilla)
+                            </option>
+                            <option value="cloudflare">Cloudflare</option>
+                            <option value="quad9">Quad9</option>
+                            <option value="google">Google</option>
+                            <option value="disable">Disable HARC</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <small class="form-text text-muted">
+                            This is used to retrieve the website's public key
+                            securely for response content signature
+                            verification.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row hidden" id="div-doh-custom">
+                <div class="col">
+                    <div class="form-group">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="input-doh-custom"
+                            placeholder="Enter custom DOH server address"
+                            required="required"
+                            disabled="disabled"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            id="btn-doh-choice-save"
+                        >
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row hidden" id="preference-response">
+                <div class="col">
+                    <span id="preference-response-span"></span>
+                </div>
+            </div>
+
+            <div class="row hidden" id="verification-response">
+                <div class="col">
+                    <div id="verification-response-span"></div>
+                </div>
+            </div>
+        </div>
+
+        <script
+            src="popup.js"
+            crossorigin="anonymous"
+            integrity="sha256-8/5mnf2F+zeyT71VT5VL6Lsh7r9hn53CEEWybawrJ7M="
+        ></script>
+    </body>
+</html>
