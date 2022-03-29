@@ -9,11 +9,12 @@
     "lint": "eslint --color --ext .js ./src/",
     "format": "prettier --write './src/**/*.{css,html,js}'",
     "clean": "rm -rf ./web-ext-artifacts",
+    "build": "web-ext build",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "firefox": "web-ext run",
-    "firefox-verbose": "web-ext run --verbose",
-    "firefox-dev-macos": "web-ext run --firefox=\"/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox-bin\"",
-    "firefox-dev-macos-verbose": "web-ext run --verbose --firefox=\"/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox-bin\""
+    "firefox": "web-ext run --browser-console",
+    "firefox-verbose": "web-ext run --browser-console --verbose",
+    "firefox-dev": "web-ext run --browser-console --firefox=firefoxdeveloperedition",
+    "firefox-dev-verbose": "web-ext run --browser-console --verbose --firefox=firefoxdeveloperedition"
   },
   "author": "Team EMB",
   "license": "UNLICENSED",
