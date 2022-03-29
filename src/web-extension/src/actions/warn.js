@@ -12,7 +12,7 @@
  *             ICT2206 Web Security (AY2021/2022, Trimester 2).
  */
 
-const message = `Unable to establish website authenticity as HARC validation has failed.
+const message = `Unable to verify website authenticity as HARC validation has failed.
 
 Press 'Cancel' to stop loading or 'OK' to continue to the website.`;
 
@@ -26,7 +26,7 @@ const BLOCK_PAGE_BODY = `<div class="info">
 <div class="icon" id="icon"></div>
 <div class="title">Your connection is not private</div>
 <div class="description">
-<p class="highlight">The authenticity of this website cannot be established as HARC validation has failed.</p>
+<p class="highlight">The authenticity of this website cannot be verified as HARC validation has failed.</p>
 <div class="small">
 <p>For your safety, this website has been blocked from loading.</p>
 <p>Network errors and attacks are usually temporary, so this page will probably work correctly later.</p>

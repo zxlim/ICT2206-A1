@@ -22,7 +22,7 @@ const BLOCK_PAGE_BODY = `<div class="info">
 <div class="icon" id="icon"></div>
 <div class="title">Your connection is not private</div>
 <div class="description">
-<p class="highlight">The authenticity of this website cannot be established as HARC validation has failed.</p>
+<p class="highlight">The authenticity of this website cannot be verified as HARC validation has failed.</p>
 <div class="small">
 <p>For your safety, this website has been automatically blocked from loading as HARC enforcement (strict mode) has been configured by the website owner.</p>
 <p>Network errors and attacks are usually temporary, so this page will probably work correctly later.</p>
