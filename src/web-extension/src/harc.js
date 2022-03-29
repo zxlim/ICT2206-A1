@@ -500,13 +500,13 @@ const entrypoint = async () => {
 
     browser.webRequest.onBeforeRequest.addListener(
         captureResponseContent,
-        { urls: ["<all_urls>"], types: ["main_frame"] },
+        { urls: ["http://*/*", "https://*/*"], types: ["main_frame"] },
         ["blocking"],
     );
 
     browser.webRequest.onCompleted.addListener(
         verifyResponseContent,
-        { urls: ["<all_urls>"] },
+        { urls: ["http://*/*", "https://*/*"] },
         ["responseHeaders"],
     );
 };
