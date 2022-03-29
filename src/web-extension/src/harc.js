@@ -40,11 +40,13 @@ const APP_CONTENT_TYPE_TO_VERIFY = [
 ];
 
 // Default selection of DOH servers.
+// "disable" option disables HARC validation.
 const DOH_SERVER_CHOICES = new Map([
     ["cloudflare", "https://1.1.1.1/dns-query"],
     ["cloudflare-mozilla", "https://mozilla.cloudflare-dns.com/dns-query"],
     ["google", "https://dns.google/dns-query"],
     ["quad9", "https://9.9.9.9:5053/dns-query"],
+    ["disable", null],
 ]);
 
 // Default DOH server: Cloudflare (Mozilla)
@@ -140,12 +142,28 @@ const setDohServer = async (payload) => {
             result.message = "Failed to resolve DOH server hostname.";
         }
     } else if (DOH_SERVER_CHOICES.has(payload.choice)) {
+        if (payload.choice === "disable") {
+            VALIDATION_RESULT_MAP.clear();
+            browser.browserAction.setBadgeText({ text: "-" });
+            browser.browserAction.setBadgeBackgroundColor({
+                color: [211, 211, 211, 255],
+            });
+            logDebug("HARC validation disabled.");
+        }
+
         DNS_DOH_RESOLVER = DOH_SERVER_CHOICES.get(payload.choice);
         logDebug(`Saved DOH server preference: ${payload.choice}`);
     } else {
         DNS_DOH_RESOLVER = DOH_SERVER_CHOICES.get("cloudflare-mozilla");
         result.success = false;
         result.message = "Unrecognised option selected.";
+    }
+
+    if (
+        DNS_DOH_RESOLVER !== null &&
+        (await browser.browserAction.getBadgeText({})) !== "!"
+    ) {
+        browser.browserAction.setBadgeText({ text: "" });
     }
 
     return result;
@@ -276,11 +294,15 @@ const getHARCDNSPayload = async (url) => {
 /**
  * Validate the response content.
  *
- * @async
  * @function  verifyResponseContent
  * @param     {details}  response  The response details.
  */
-const verifyResponseContent = async (response) => {
+const verifyResponseContent = (response) => {
+    if (DNS_DOH_RESOLVER === null) {
+        // HARC validation disabled by user.
+        return;
+    }
+
     browser.tabs
         .query({ currentWindow: true, active: true })
         .then(async (tabs) => {

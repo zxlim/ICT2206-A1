@@ -20,8 +20,8 @@ const getCurrentDohSelection = () => {
         .sendMessage({
             type: "getDohPreference",
         })
-        .then((message) => {
-            const { data } = message;
+        .then((result) => {
+            const { data } = result;
 
             for (let i = 0; i < selectorDohChoice.options.length; ++i) {
                 if (selectorDohChoice.options[i].value === data.choice) {
@@ -54,25 +54,25 @@ const getHarcValidationResult = () => {
                 type: "harcValidationResult",
                 tabId: tabs[0].id,
             })
-            .then((message) => {
-                let result = "";
+            .then((result) => {
+                let output = "";
 
-                switch (message.data) {
+                switch (result.data) {
                     case "doh-failure":
                         // eslint-disable-next-line quotes
-                        result = `<hr>\n<span class="text-bold text-warning">Cannot perform HARC validation.</span>`;
+                        output = `<hr>\n<span class="text-bold text-warning">Cannot perform HARC validation.</span>`;
                         break;
                     case "ignored-domain":
                         // eslint-disable-next-line quotes
-                        result = `<hr>\n<span class="text-muted">HARC not deployed on this website.</span>`;
+                        output = `<hr>\n<span class="text-muted">HARC not deployed on this website.</span>`;
                         break;
                     case "trusted":
                         // eslint-disable-next-line quotes
-                        result = `<hr>\n<span class="text-bold text-success">✅&nbsp;&nbsp;Website content verified authentic.</span>`;
+                        output = `<hr>\n<span class="text-bold text-success">✅&nbsp;&nbsp;Website content verified authentic.</span>`;
                         break;
                     case "untrusted":
                         // eslint-disable-next-line quotes
-                        result = `<hr>\n<span class="text-bold text-danger">❌&nbsp;&nbsp;Website content is not authentic.</span>`;
+                        output = `<hr>\n<span class="text-bold text-danger">❌&nbsp;&nbsp;Website content is not authentic.</span>`;
                         break;
                     default:
                         break;
@@ -83,7 +83,7 @@ const getHarcValidationResult = () => {
                     .classList.remove("hidden");
                 document.querySelector(
                     "#verification-response-span",
-                ).innerHTML = result;
+                ).innerHTML = output;
             })
             .catch(() => {
                 // eslint-disable-next-line no-console
@@ -94,24 +94,28 @@ const getHarcValidationResult = () => {
     });
 };
 
-const communicateDohPreference = async (choice, customDohServerAddr = null) => {
-    const result = await browser.runtime.sendMessage({
-        type: "setDohPreference",
-        data: {
-            choice: choice,
-            customDohServerAddr: customDohServerAddr,
-        },
-    });
-
-    document.querySelector("#preference-response").classList.remove("hidden");
-    document.querySelector("#preference-response-span").textContent =
-        result.data.message;
+const communicateDohPreference = (choice, customDohServerAddr = null) => {
+    browser.runtime
+        .sendMessage({
+            type: "setDohPreference",
+            data: {
+                choice: choice,
+                customDohServerAddr: customDohServerAddr,
+            },
+        })
+        .then((result) => {
+            document
+                .querySelector("#preference-response")
+                .classList.remove("hidden");
+            document.querySelector("#preference-response-span").textContent =
+                result.data.message;
+        });
 };
 
-const entrypoint = async () => {
+const entrypoint = () => {
     document
         .querySelector("#btn-doh-choice-save")
-        .addEventListener("click", async () => {
+        .addEventListener("click", () => {
             const choice = selectorDohChoice.value.trim();
 
             if (choice === "custom") {
@@ -127,10 +131,10 @@ const entrypoint = async () => {
                     ).textContent =
                         "Please fill in your custom DOH server address.";
                 } else {
-                    await communicateDohPreference(choice, customDohServerAddr);
+                    communicateDohPreference(choice, customDohServerAddr);
                 }
             } else {
-                await communicateDohPreference(choice);
+                communicateDohPreference(choice);
             }
         });
 

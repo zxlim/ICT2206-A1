@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "HTTP Authenticated Response Content (HARC): Client-side Verifier Extension (Firefox)",
   "main": "src/harc.js",
+  "private": true,
   "scripts": {
     "eslint": "eslint",
     "lint": "eslint --color --ext .js ./src/",

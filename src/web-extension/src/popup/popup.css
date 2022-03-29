@@ -126,6 +126,18 @@ small {
         border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .btn {
+        transition: none;
+    }
+}
+
+.btn:hover {
+    color: #fff;
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
 .btn:not(:disabled):not(.disabled) {
     cursor: pointer;
 }
