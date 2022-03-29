@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <title>HTTP Authenticated Response Content (HARC)</title>
+
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div id="popup-main">
+            <h2 class="header">
+                <img src="/src/icons/harc-32.png" />
+                &nbsp; HARC Preference
+            </h2>
+            <hr />
+
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label for="selector-doh-choice"
+                            >DNS-over-HTTPS (DOH) Server Selection</label
+                        >
+                        <select class="form-control" id="selector-doh-choice">
+                            <option
+                                value="cloudflare-mozilla"
+                                selected="selected"
+                            >
+                                Cloudflare (Mozilla)
+                            </option>
+                            <option value="cloudflare">Cloudflare</option>
+                            <option value="quad9">Quad9</option>
+                            <option value="google">Google</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <small class="form-text text-muted">
+                            This is used to retrieve the website's public key
+                            securely for response content signature
+                            verification.
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row hidden" id="div-doh-custom">
+                <div class="col">
+                    <div class="form-group">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="input-doh-custom"
+                            placeholder="Enter custom DOH server address"
+                            disabled="disabled"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <button
+                            class="btn btn-primary"
+                            id="btn-doh-choice-save"
+                        >
+                            Save
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <span id="preference-response"></span>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <div id="verification-response"></div>
+                </div>
+            </div>
+        </div>
+
+        <script src="script.js"></script>
+    </body>
+</html>

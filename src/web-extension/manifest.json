@@ -15,9 +15,19 @@
   "permissions": [
     "<all_urls>",
     "activeTab",
+    "dns",
     "webRequest",
     "webRequestBlocking"
   ],
+  "icons": {
+    "48": "src/icons/harc-48.png",
+    "96": "src/icons/harc-96.png"
+  },
+  "browser_action": {
+    "default_icon": "src/icons/harc-32.png",
+    "default_title": "HTTP Authenticated Response Content (HARC)",
+    "default_popup": "src/popup/index.html"
+  },
   "background": {
     "scripts": [
       "src/lib/doh.min.js",
