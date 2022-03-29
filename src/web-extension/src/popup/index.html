@@ -2,14 +2,26 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'none'; img-src 'self'; script-src 'self'; style-src 'self'"
+        />
+        <meta name="author" content="Team EMB" />
+        <meta
+            name="description"
+            content="HTTP Authenticated Response Content (HARC)"
+        />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
         <title>HTTP Authenticated Response Content (HARC)</title>
-
-        <link rel="stylesheet" href="style.css" />
+        <link
+            rel="stylesheet"
+            href="popup.css"
+            crossorigin="anonymous"
+            integrity="sha256-Xuxtu4aIEqvDT5lNwMrUVoLBgAmdNYbZseGl/430jlg="
+        />
     </head>
     <body>
-        <div id="popup-main">
+        <div class="container">
             <h2 class="header">
                 <img src="/src/icons/harc-32.png" />
                 &nbsp; HARC Preference
@@ -19,9 +31,9 @@
             <div class="row">
                 <div class="col">
                     <div class="form-group">
-                        <label for="selector-doh-choice"
-                            >DNS-over-HTTPS (DOH) Server Selection</label
-                        >
+                        <label for="selector-doh-choice">
+                            DNS-over-HTTPS (DOH) Server Selection
+                        </label>
                         <select class="form-control" id="selector-doh-choice">
                             <option
                                 value="cloudflare-mozilla"
@@ -51,6 +63,7 @@
                             class="form-control"
                             id="input-doh-custom"
                             placeholder="Enter custom DOH server address"
+                            required="required"
                             disabled="disabled"
                         />
                     </div>
@@ -61,6 +74,7 @@
                 <div class="col">
                     <div class="form-group">
                         <button
+                            type="button"
                             class="btn btn-primary"
                             id="btn-doh-choice-save"
                         >
@@ -70,19 +84,23 @@
                 </div>
             </div>
 
-            <div class="row">
+            <div class="row hidden" id="preference-response">
                 <div class="col">
-                    <span id="preference-response"></span>
+                    <span id="preference-response-span"></span>
                 </div>
             </div>
 
-            <div class="row">
+            <div class="row hidden" id="verification-response">
                 <div class="col">
-                    <div id="verification-response"></div>
+                    <div id="verification-response-span"></div>
                 </div>
             </div>
         </div>
 
-        <script src="script.js"></script>
+        <script
+            src="popup.js"
+            crossorigin="anonymous"
+            integrity="sha256-UGgTclS9TWbevcv7V7eLt0He31/EVTmeh32wSnkdYuY="
+        ></script>
     </body>
 </html>

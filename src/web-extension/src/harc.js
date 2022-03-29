@@ -23,6 +23,7 @@ const DIGEST_ALGO = "SHA-256";
 const EC_CURVE = "P-256";
 const EC_TYPE = "ECDSA";
 const HARC_DNS_SUBDOMAIN = "_arc";
+const HARC_HEADER_ALGO = "x-arc-algo";
 const HARC_HEADER_DIGEST = "x-arc-digest";
 const HARC_HEADER_SIGNATURE = "x-arc-signature";
 const RESPONSE_MAP = new Map();
@@ -38,6 +39,7 @@ const APP_CONTENT_TYPE_TO_VERIFY = [
     "application/atom+xml",
 ];
 
+// Default selection of DOH servers.
 const DOH_SERVER_CHOICES = new Map([
     ["cloudflare", "https://1.1.1.1/dns-query"],
     ["cloudflare-mozilla", "https://mozilla.cloudflare-dns.com/dns-query"],
@@ -45,7 +47,7 @@ const DOH_SERVER_CHOICES = new Map([
     ["quad9", "https://9.9.9.9:5053/dns-query"],
 ]);
 
-// Default Server: Cloudflare (Mozilla)
+// Default DOH server: Cloudflare (Mozilla)
 let DNS_DOH_RESOLVER = DOH_SERVER_CHOICES.get("cloudflare-mozilla");
 
 /**----------------------------------------------------------------
@@ -73,31 +75,6 @@ const logDebug = (message) => {
 const logError = (error) => {
     console.error(error.message);
     console.error(error.stack);
-};
-
-/**
- * Retrieves the HARC validation result for the active tab.
- *
- * @async
- * @function  getHarcValidationResult
- * @returns   {String}  Result of the operation.
- */
-const getHarcValidationResult = async () => {
-    const tabs = await browser.tabs.query({
-        currentWindow: true,
-        active: true,
-    });
-    const currentUrl = tabs[0].url.replace("view-source:", "");
-
-    if (currentUrl.startsWith("about:")) {
-        return "trusted-mozilla";
-    }
-
-    if (VALIDATION_RESULT_MAP.has(currentUrl)) {
-        return VALIDATION_RESULT_MAP.get(currentUrl);
-    }
-
-    return "ignored-domain";
 };
 
 /**
@@ -182,17 +159,27 @@ const setDohServer = async (payload) => {
  * Invoke the failure action.
  *
  * @function  invokeFailure
+ * @param     {int}     tabId   The tab ID.
+ * @param     {String}  action  The action to perform on failure.
  */
-const invokeFailure = (action) => {
-    let failureAction = "src/actions/warn.js";
-    const dohFailureMsg =
-        "Unable to validate HARC signature due to DNS-over-HTTPS resolution error. Proceed with caution.";
+const invokeFailure = (tabId, action) => {
+    browser.browserAction.setBadgeText({ tabId: tabId, text: "!" });
 
     if (action === "doh-failure") {
-        browser.tabs.executeScript({
-            code: `window.alert("${dohFailureMsg}");`,
+        browser.browserAction.setBadgeBackgroundColor({
+            tabId: tabId,
+            color: [217, 217, 41, 255],
         });
+        VALIDATION_RESULT_MAP.set(tabId, "doh-failure");
     } else {
+        let failureAction = "src/actions/warn.js";
+
+        browser.browserAction.setBadgeBackgroundColor({
+            tabId: tabId,
+            color: [217, 0, 0, 255],
+        });
+        VALIDATION_RESULT_MAP.set(tabId, "untrusted");
+
         if (action === "enforce") {
             failureAction = "src/actions/block.js";
         }
@@ -304,12 +291,17 @@ const verifyResponseContent = async (response) => {
                 return;
             }
 
+            browser.browserAction.setBadgeText({ tabId: tab.id, text: "" });
+
             let contentType = "";
             let publicKey = null;
             let signature = null;
 
             response.responseHeaders.forEach((header) => {
                 switch (header.name.toLowerCase()) {
+                    case HARC_HEADER_ALGO:
+                        logDebug(`Algorithm: ${header.value.trim()}`);
+                        break;
                     case HARC_HEADER_DIGEST:
                         logDebug(`Digest: ${header.value.trim()}`);
                         break;
@@ -343,7 +335,7 @@ const verifyResponseContent = async (response) => {
                 logDebug(
                     `Skipping verification for '${response.url}': Unsupported content type '${contentType}'`,
                 );
-                VALIDATION_RESULT_MAP.set(response.url, "ignored-resource");
+                VALIDATION_RESULT_MAP.set(tab.id, "ignored-resource");
                 return;
             }
 
@@ -355,15 +347,12 @@ const verifyResponseContent = async (response) => {
                 if (action === null && publicKeyDer === null) {
                     // HARC is not enabled on this domain.
                     logDebug("HARC not enabled on this domain.");
-                    if (VALIDATION_RESULT_MAP.has(response.url)) {
-                        VALIDATION_RESULT_MAP.delete(response.url);
-                    }
+                    VALIDATION_RESULT_MAP.set(tab.id, "ignored-domain");
                     return;
                 }
 
                 console.warn(`[HARC] Missing header: ${HARC_HEADER_SIGNATURE}`);
-                VALIDATION_RESULT_MAP.set(response.url, "untrusted");
-                invokeFailure(action);
+                invokeFailure(tab.id, action);
                 return;
             }
 
@@ -371,14 +360,7 @@ const verifyResponseContent = async (response) => {
                 console.warn(
                     "[HARC] Unable to retrieve public key. Cannot proceed with response content validation.",
                 );
-
-                if (action === "doh-failure") {
-                    VALIDATION_RESULT_MAP.set(response.url, "doh-failure");
-                } else {
-                    VALIDATION_RESULT_MAP.set(response.url, "untrusted");
-                }
-
-                invokeFailure(action);
+                invokeFailure(tab.id, action);
                 return;
             }
 
@@ -396,8 +378,7 @@ const verifyResponseContent = async (response) => {
             } catch (error) {
                 // Error importing public key.
                 logError(error);
-                VALIDATION_RESULT_MAP.set(response.url, "untrusted");
-                invokeFailure(action);
+                invokeFailure(tab.id, action);
                 return;
             }
 
@@ -415,8 +396,7 @@ const verifyResponseContent = async (response) => {
 
             if (!RESPONSE_MAP.has(response.url)) {
                 console.error("[HARC] Failed to read response content.");
-                VALIDATION_RESULT_MAP.set(response.url, "untrusted");
-                invokeFailure(action);
+                invokeFailure(tab.id, action);
                 return;
             }
 
@@ -435,11 +415,10 @@ const verifyResponseContent = async (response) => {
 
             if (!signatureVerified) {
                 console.error("[HARC] Signature validation failed!");
-                VALIDATION_RESULT_MAP.set(response.url, "untrusted");
-                invokeFailure(action);
+                invokeFailure(tab.id, action);
             } else {
                 logDebug("Signature verified.");
-                VALIDATION_RESULT_MAP.set(response.url, "trusted");
+                VALIDATION_RESULT_MAP.set(tab.id, "trusted");
             }
         })
         .catch((error) => {
@@ -488,7 +467,7 @@ const entrypoint = async () => {
                 result.data = await setDohServer(message.data);
                 break;
             case "harcValidationResult":
-                result.data = await getHarcValidationResult();
+                result.data = VALIDATION_RESULT_MAP.get(message.tabId);
                 break;
             default:
             // No default.
