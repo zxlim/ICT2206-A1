@@ -59,20 +59,32 @@ const getHarcValidationResult = () => {
 
                 switch (result.data) {
                     case "doh-failure":
-                        // eslint-disable-next-line quotes
-                        output = `<hr>\n<span class="text-bold text-warning">Cannot perform HARC validation.</span>`;
+                        output += "<hr>\n";
+                        output +=
+                            '<span class="text-bold text-warning">Cannot perform HARC validation as DOH resolution failed.</span>\n';
                         break;
                     case "ignored-domain":
-                        // eslint-disable-next-line quotes
-                        output = `<hr>\n<span class="text-muted">HARC not deployed on this website.</span>`;
+                        output += "<hr>\n";
+                        output +=
+                            '<span class="text-muted">HARC not deployed on this website.</span>\n';
                         break;
                     case "trusted":
-                        // eslint-disable-next-line quotes
-                        output = `<hr>\n<span class="text-bold text-success">✅&nbsp;&nbsp;Website content verified authentic.</span>`;
+                        output += "<hr>\n";
+                        output +=
+                            '<span class="text-bold text-success">✅&nbsp;&nbsp;Website content verified.</span>\n';
+                        break;
+                    case "trusted-partial":
+                        output += "<hr>\n";
+                        output +=
+                            '<span class="text-muted">Website content partially verified.</span>\n';
+                        output += "<br>\n";
+                        output +=
+                            '<span class="text-muted">HARC was not deployed on some resources.</span>\n';
                         break;
                     case "untrusted":
-                        // eslint-disable-next-line quotes
-                        output = `<hr>\n<span class="text-bold text-danger">❌&nbsp;&nbsp;Website content is not authentic.</span>`;
+                        output += "<hr>\n";
+                        output +=
+                            '<span class="text-bold text-danger">❌&nbsp;&nbsp;Website content is not trusted.</span>\n';
                         break;
                     default:
                         break;

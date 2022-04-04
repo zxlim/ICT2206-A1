@@ -13,7 +13,8 @@
     }
   },
   "permissions": [
-    "<all_urls>",
+    "http://*/*",
+    "https://*/*",
     "activeTab",
     "dns",
     "webRequest",
@@ -26,13 +27,13 @@
   "browser_action": {
     "default_icon": "src/icons/harc-32.png",
     "default_title": "HTTP Authenticated Response Content (HARC)",
-    "default_popup": "src/popup/index.html"
+    "default_popup": "src/popup.html"
   },
   "background": {
     "scripts": [
-      "src/lib/doh.min.js",
-      "src/lib/psl.min.js",
-      "src/harc.js"
+      "src/js/lib/doh.min.js",
+      "src/js/lib/psl.min.js",
+      "src/js/background.js"
     ]
   }
 }

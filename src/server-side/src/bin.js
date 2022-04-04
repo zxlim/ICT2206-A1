@@ -30,15 +30,6 @@ const HARC_HEADER_ALGO = "X-ARC-ALGO";
 const HARC_HEADER_DIGEST = "X-ARC-DIGEST";
 const HARC_HEADER_SIGNATURE = "X-ARC-SIGNATURE";
 
-// Text-like content with application prefix.
-const APP_CONTENT_TYPE_TO_SIGN = [
-    "application/javascript",
-    "application/json",
-    "application/ld+json",
-    "application/xml",
-    "application/atom+xml",
-];
-
 /**
  * Pretty console logger.
  *
@@ -339,43 +330,36 @@ const serve = (harcSigningKey, args) => {
             }
 
             let digest = null;
-            let signature = null;
 
-            // Perform signing on "text-based" content only.
-            if (
-                contentType.includes("text/") ||
-                APP_CONTENT_TYPE_TO_SIGN.includes(contentType)
-            ) {
-                // Useful if support for multiple algorithms is needed.
-                // Format: SIGNATURE_ALGORITHM; DIGEST_ALGORITHM
-                response.setHeader(
-                    HARC_HEADER_ALGO,
-                    `${EC_TYPE}_${EC_CURVE}; ${DIGEST_ALGO}`,
-                );
+            // Useful if support for multiple algorithms is needed.
+            // Format: SIGNATURE_ALGORITHM; DIGEST_ALGORITHM
+            response.setHeader(
+                HARC_HEADER_ALGO,
+                `${EC_TYPE}_${EC_CURVE}; ${DIGEST_ALGO}`,
+            );
 
-                if (args.digestHeader) {
-                    // Useful for development/troubleshooting.
-                    digest = Buffer.from(
-                        await subtle.digest(DIGEST_ALGO, str2ab(content)),
-                    ).toString(CRYPTO_OUTPUT_ENCODING);
-
-                    response.setHeader(HARC_HEADER_DIGEST, digest);
-                }
-
-                // Generate digital signature of response content.
-                signature = Buffer.from(
-                    await subtle.sign(
-                        {
-                            name: EC_TYPE,
-                            hash: DIGEST_ALGO,
-                        },
-                        harcSigningKey,
-                        str2ab(content),
-                    ),
+            if (args.digestHeader) {
+                // Useful for development/troubleshooting.
+                digest = Buffer.from(
+                    await subtle.digest(DIGEST_ALGO, str2ab(content)),
                 ).toString(CRYPTO_OUTPUT_ENCODING);
 
-                response.setHeader(HARC_HEADER_SIGNATURE, signature);
+                response.setHeader(HARC_HEADER_DIGEST, digest);
             }
+
+            // Generate digital signature of response content.
+            const signature = Buffer.from(
+                await subtle.sign(
+                    {
+                        name: EC_TYPE,
+                        hash: DIGEST_ALGO,
+                    },
+                    harcSigningKey,
+                    str2ab(content),
+                ),
+            ).toString(CRYPTO_OUTPUT_ENCODING);
+
+            response.setHeader(HARC_HEADER_SIGNATURE, signature);
 
             // Log the HTTP request to console and send response to client.
             commonLogFormat(content.length, digest, signature);
