@@ -199,7 +199,9 @@ const captureResponseContent = async (request) => {
     const tab = await browser.tabs.get(tabId);
 
     if (url === tab.url) {
-        VALIDATION_RESULT_MAP.delete(tabId);
+        if (VALIDATION_RESULT_MAP.has(tabId)) {
+            VALIDATION_RESULT_MAP.delete(tabId);
+        }
     }
 
     let decoder;
@@ -305,7 +307,11 @@ const clearTabRecords = (tabId) => {
 const getHARCDNSPayload = async (url) => {
     // eslint-disable-next-line no-undef
     const domain = psl.parse(url.hostname);
-    const dnsQueryDomain = `${domain.subdomain}.${HARC_DNS_SUBDOMAIN}.${domain.domain}`;
+    let dnsQueryDomain = `${HARC_DNS_SUBDOMAIN}.${domain.domain}`;
+
+    if (domain.subdomain !== null) {
+        dnsQueryDomain = `${domain.subdomain}.${HARC_DNS_SUBDOMAIN}.${domain.domain}`;
+    }
 
     if (!(await validateDohServer(DNS_DOH_RESOLVER))) {
         console.error(
@@ -423,7 +429,7 @@ const invokeFailure = (tabId, action) => {
         });
         VALIDATION_RESULT_MAP.set(tabId, "doh-failure");
     } else {
-        let failureAction = "src/actions/warn.js";
+        let failureAction = "src/js/actions/warn.js";
 
         browser.browserAction.setBadgeBackgroundColor({
             tabId: tabId,
@@ -432,7 +438,7 @@ const invokeFailure = (tabId, action) => {
         VALIDATION_RESULT_MAP.set(tabId, "untrusted");
 
         if (action === "enforce") {
-            failureAction = "src/actions/block.js";
+            failureAction = "src/js/actions/block.js";
         }
 
         browser.tabs.executeScript(tabId, {
@@ -500,6 +506,10 @@ const verifyResponseContent = async (response) => {
     if (response.url === tab.url) {
         // Set the action to take on failure based on main resource's defined action.
         TAB_ACTION_MAP.set(tabId, action);
+
+        if (VALIDATION_RESULT_MAP.has(tabId)) {
+            VALIDATION_RESULT_MAP.delete(tabId);
+        }
     } else {
         // Use the main resource's action instead.
         // Wait up to 10 seconds for main resource's action to be retrieved.
