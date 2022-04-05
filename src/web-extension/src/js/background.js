@@ -189,6 +189,11 @@ const setDohServer = async (payload) => {
  * @param     {object}  request  The request object.
  */
 const captureResponseContent = async (request) => {
+    if (DNS_DOH_RESOLVER === null) {
+        // HARC validation disabled by user.
+        return;
+    }
+
     const { requestId, tabId, url } = request;
 
     if (!TAB_RESPONSES_MAP.has(tabId)) {
@@ -257,6 +262,11 @@ const captureResponseContent = async (request) => {
  * @param     {object}  response  The response object.
  */
 const captureResponseEncoding = (response) => {
+    if (DNS_DOH_RESOLVER === null) {
+        // HARC validation disabled by user.
+        return;
+    }
+
     const { requestId } = response;
 
     // Default to latin1.
@@ -455,6 +465,11 @@ const invokeFailure = (tabId, action) => {
  * @param     {object}  response  The response object.
  */
 const verifyResponseContent = async (response) => {
+    if (DNS_DOH_RESOLVER === null) {
+        // HARC validation disabled by user.
+        return;
+    }
+
     if (response.url === DNS_DOH_RESOLVER) {
         // Ignore if response is from DOH server.
         return;
@@ -462,11 +477,6 @@ const verifyResponseContent = async (response) => {
 
     // Get the tab ID of the response.
     const { tabId } = response;
-
-    if (DNS_DOH_RESOLVER === null) {
-        // HARC validation disabled by user.
-        return;
-    }
 
     // Get all the response data for the active tab.
     const tabResponses = TAB_RESPONSES_MAP.get(tabId);
