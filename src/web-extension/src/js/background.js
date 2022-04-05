@@ -485,7 +485,7 @@ const verifyResponseContent = async (response) => {
 
     if (action === null && publicKeyDer === null) {
         // HARC is not enabled on this domain.
-        logDebug(`HARC not enabled on: ${response.url}`);
+        logDebug(`HARC not enabled: ${response.url}`);
 
         if (VALIDATION_RESULT_MAP.has(tabId)) {
             const currentResult = VALIDATION_RESULT_MAP.get(tabId);
@@ -529,7 +529,7 @@ const verifyResponseContent = async (response) => {
         } else {
             // Fallback to current resource's defined action instead.
             logWarn(
-                "Failed to retrieve main resource's action. Using current resource's action.",
+                `Failed to retrieve main resource's action. Using current resource's action: ${response.url}`,
             );
         }
     }
@@ -577,7 +577,7 @@ const verifyResponseContent = async (response) => {
     if (publicKey === null) {
         // Failed to parse public key.
         logWarn(
-            "Failed to parse public key. Cannot proceed with response content validation.",
+            `Failed to parse public key. Cannot proceed with validation: ${response.url}`,
         );
         invokeFailure(tabId, action);
         return;
@@ -585,7 +585,7 @@ const verifyResponseContent = async (response) => {
 
     if (signatureEncoded === null) {
         // HARC enabled but did not receive signature header.
-        logWarn(`Missing header: ${HARC_HEADER_SIGNATURE}`);
+        logWarn(`Missing ${HARC_HEADER_SIGNATURE}: ${response.url}`);
         invokeFailure(tabId, action);
         return;
     }

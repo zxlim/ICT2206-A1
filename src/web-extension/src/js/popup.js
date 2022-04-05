@@ -71,12 +71,12 @@ const getHarcValidationResult = () => {
                     case "trusted":
                         output += "<hr>\n";
                         output +=
-                            '<span class="text-bold text-success">✅&nbsp;&nbsp;Website content verified.</span>\n';
+                            '<span class="text-bold text-success">✅&nbsp;&nbsp;Website content validated.</span>\n';
                         break;
                     case "trusted-partial":
                         output += "<hr>\n";
                         output +=
-                            '<span class="text-muted">Website content partially verified.</span>\n';
+                            '<span class="text-muted">Website content partially validated.</span>\n';
                         output += "<br>\n";
                         output +=
                             '<span class="text-muted">HARC was not deployed on some resources.</span>\n';
