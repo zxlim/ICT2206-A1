@@ -14,11 +14,11 @@ HARC is an application-layer solution that introduces a content integrity and au
 
 ## Repository Structure
 
-ICT2206-A1
-    ├── .github            # Directory containing GitHub configuration or related files.
-    └── src                # Directory containing soruce code and submodule usage documentation.
-        ├── server-side    # Directory containing source code for the HARC Proxy Server.
-        └── web-extension  # Directory containing source code for the HARC Browser Extension.
+    ICT2206-A1
+        ├── .github            # Directory containing GitHub configuration or related files.
+        └── src                # Directory containing soruce code and submodule usage documentation.
+            ├── server-side    # Directory containing source code for the HARC Proxy Server.
+            └── web-extension  # Directory containing source code for the HARC Browser Extension.
 
 ## Submodules
 
